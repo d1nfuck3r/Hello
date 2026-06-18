@@ -1,0 +1,13 @@
+Vyxel Apps
+Copyright (C) 2026 YOUR_NAME (https://github.com/YOUR_USERNAME)
+
+This is the official source for Vyxel Apps.
+The only official APK distribution is at:
+  https://github.com/YOUR_USERNAME/vyxel-apps/releases
+
+Any other distribution claiming to be "Vyxel Apps" is unofficial
+and should not be trusted.
+
+The official build is signed with the developer's keystore.
+You can verify the APK signature using:
+  apksigner verify --print-certs app-release.apk
