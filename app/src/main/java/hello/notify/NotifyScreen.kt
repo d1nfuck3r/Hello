@@ -180,6 +180,15 @@ fun NotifyScreen() {
                     }
                 }
             }
+            
+            ExtendedFloatingActionButton(
+                onClick = { editRule = null; showEdit = true },
+                icon    = { Icon(Icons.Rounded.Add, null, tint = Color.White) },
+                text    = { Text("LOG", color = Color.White, fontWeight = FontWeight.SemiBold) },
+                containerColor = t.accent, shape = CircleShape,
+                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding()
+                    .padding(start = 20.dp, bottom = 115.dp)
+            )
 
             // ── Log
             val scrollLog = rememberScrollState()
@@ -219,8 +228,8 @@ fun NotifyScreen() {
     deleteRule?.let { r ->
         AlertDialog(
             onDismissRequest = { deleteRule = null },
-            title            = { Text("ลบ r.appName ?", color = t.textPrimary) },
-            text             = { Text(r.appName, color = t.textSecondary) },
+            title            = { Text(r.appName, color = t.textPrimary) },
+            text             = { Text("ต้องการลบใช่มั้ย?", color = t.textSecondary) },
             confirmButton    = {
                 TextButton(onClick = {
                     RuleStore.delete(context, r.id); rules = RuleStore.load(context); deleteRule = null
