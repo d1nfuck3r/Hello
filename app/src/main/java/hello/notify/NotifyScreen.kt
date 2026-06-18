@@ -103,9 +103,9 @@ fun NotifyScreen() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Notify TTS", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
+                    Text("Hello Notify", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
                         letterSpacing = (-0.5).sp, color = t.textPrimary)
-                    Text("เปิดโลกแห่งการได้ยิน", fontSize = 13.sp, color = t.textSecondary)
+                    Text("สวัสดี", fontSize = 13.sp, color = t.textSecondary)
                 }
                 IconButton(onClick = { gridMode = !gridMode },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(t.bgSurface)) {
@@ -145,9 +145,9 @@ fun NotifyScreen() {
             // ── Rules header
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("Rules", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                Text("รายการแอพ", fontSize = 18.sp, fontWeight = FontWeight.Bold,
                     color = t.textPrimary, modifier = Modifier.weight(1f))
-                Text("${rules.size} rules", fontSize = 11.sp, color = t.textSecondary)
+                Text("${rules.size} แอพ", fontSize = 11.sp, color = t.textSecondary)
             }
 
             // ── Rules
@@ -191,7 +191,7 @@ fun NotifyScreen() {
                     Text(logLines, fontSize = 10.sp, fontFamily = FontFamily.Monospace,
                         color = Color(0xFF6EE7B7), lineHeight = 15.sp,
                         modifier = Modifier.fillMaxSize().verticalScroll(scrollLog).padding(12.dp))
-                    IconButton(onClick = { logLines = "— cleared" },
+                    IconButton(onClick = { logLines = "Clear ล้างข้อมูลแจ้งเตือนแล้ว" },
                         modifier = Modifier.align(Alignment.TopEnd).size(28.dp)) {
                         Icon(Icons.Rounded.Clear, null, tint = Color(0xFF6EE7B7).copy(.5f),
                             modifier = Modifier.size(14.dp))
@@ -203,7 +203,7 @@ fun NotifyScreen() {
         ExtendedFloatingActionButton(
             onClick = { editRule = null; showEdit = true },
             icon    = { Icon(Icons.Rounded.Add, null, tint = Color.White) },
-            text    = { Text("เพิ่ม Rule", color = Color.White, fontWeight = FontWeight.SemiBold) },
+            text    = { Text("เพิ่ม", color = Color.White, fontWeight = FontWeight.SemiBold) },
             containerColor = t.accent, shape = CircleShape,
             modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding()
                 .padding(end = 20.dp, bottom = 115.dp)
@@ -219,7 +219,7 @@ fun NotifyScreen() {
     deleteRule?.let { r ->
         AlertDialog(
             onDismissRequest = { deleteRule = null },
-            title            = { Text("ลบ rule?", color = t.textPrimary) },
+            title            = { Text("ลบ r.appName ?", color = t.textPrimary) },
             text             = { Text(r.appName, color = t.textSecondary) },
             confirmButton    = {
                 TextButton(onClick = {
@@ -277,7 +277,7 @@ private fun ListRuleCard(
             rule.triggers.take(3).forEach { trig ->
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 5.dp)) {
                     Surface(shape = CircleShape, color = Color.White.copy(.20f)) {
-                        Text("TRIGGER", fontSize = 8.sp, fontWeight = FontWeight.ExtraBold,
+                        Text("แจ้งเตือนแอพ", fontSize = 8.sp, fontWeight = FontWeight.ExtraBold,
                             color = Color.White, letterSpacing = 0.5.sp,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                     }
@@ -376,7 +376,7 @@ private fun EditRuleSheet(
             .padding(horizontal = 20.dp).padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
-            Text(if (existing == null) "เพิ่ม Rule" else "แก้ไข Rule",
+            Text(if (existing == null) "เพิ่ม" else "แก้ไข",
                 fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = t.textPrimary)
             Text("กำหนดแอพและเงื่อนไขการพูด", fontSize = 13.sp, color = t.textSecondary)
 
@@ -405,7 +405,7 @@ private fun EditRuleSheet(
             Surface(shape = RoundedCornerShape(16.dp), color = t.bgSurfaceAlt, modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Triggers", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                        Text("แจ้งเตือนแอพ", fontSize = 11.sp, fontWeight = FontWeight.Bold,
                             color = t.accent, letterSpacing = 0.5.sp, modifier = Modifier.weight(1f))
                         Surface(shape = RoundedCornerShape(8.dp), color = t.accent.copy(.12f),
                             modifier = Modifier.clickable {
