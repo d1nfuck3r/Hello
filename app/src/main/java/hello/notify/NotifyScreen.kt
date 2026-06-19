@@ -5,11 +5,18 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,19 +24,25 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.delay
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,17 +77,13 @@ fun NotifyScreen() {
     val context = LocalContext.current
 
     var rules      by remember { mutableStateOf(RuleStore.load(context)) }
-    var logLines   by remember { mutableStateOf("Log ข้อมูลแจ้งเตือน...") }
     var nlsEnabled by remember { mutableStateOf(isNLSEnabled(context)) }
     var editRule   by remember { mutableStateOf<UserRule?>(null) }
     var showEdit   by remember { mutableStateOf(false) }
     var deleteRule by remember { mutableStateOf<UserRule?>(null) }
     var gridMode   by remember { mutableStateOf(false) }
-
-    DisposableEffect(Unit) {
-        LogBus.onLog = { msg -> logLines = (logLines.lines().takeLast(40) + msg).joinToString("\n") }
-        onDispose { LogBus.onLog = null }
-    }
+    var showMenu   by remember { mutableStateOf(false) }
+    var removingIds by remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(Unit) {
         RuleStore.seedIfEmpty(context)
@@ -155,67 +164,72 @@ fun NotifyScreen() {
                 LazyVerticalGrid(
                     columns               = GridCells.Fixed(2),
                     modifier              = Modifier.weight(1f),
-                    contentPadding        = PaddingValues(start = 12.dp, end = 12.dp, bottom = 90.dp),
+                    contentPadding        = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement   = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(rules, key = { it.id }) { rule ->
-                        GridRuleCard(rule = rule, theme = t,
-                            onToggle = { RuleStore.toggle(context, rule.id); rules = RuleStore.load(context) },
-                            onEdit   = { editRule = rule; showEdit = true },
-                            onDelete = { deleteRule = rule })
+                    itemsIndexed(rules, key = { _, r -> r.id }) { index, rule ->
+                        AnimatedCardSlot(
+                            index     = index,
+                            removing  = rule.id in removingIds,
+                            onRemoved = {
+                                RuleStore.delete(context, rule.id)
+                                rules = RuleStore.load(context)
+                                removingIds = removingIds - rule.id
+                            }
+                        ) {
+                            GridRuleCard(rule = rule, theme = t,
+                                onToggle = { RuleStore.toggle(context, rule.id); rules = RuleStore.load(context) },
+                                onEdit   = { editRule = rule; showEdit = true },
+                                onDelete = { deleteRule = rule })
+                        }
                     }
                 }
             } else {
                 LazyColumn(
                     modifier            = Modifier.weight(1f),
-                    contentPadding      = PaddingValues(start = 16.dp, end = 16.dp, bottom = 90.dp),
+                    contentPadding      = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(rules, key = { it.id }) { rule ->
-                        ListRuleCard(rule = rule, theme = t,
-                            onToggle = { RuleStore.toggle(context, rule.id); rules = RuleStore.load(context) },
-                            onEdit   = { editRule = rule; showEdit = true },
-                            onDelete = { deleteRule = rule })
-                    }
-                }
-            }
-            
-            ExtendedFloatingActionButton(
-                onClick = { editRule = null; showEdit = true },
-                icon    = { Icon(Icons.Rounded.Add, null, tint = Color.White) },
-                text    = { Text("LOG", color = Color.White, fontWeight = FontWeight.SemiBold) },
-                containerColor = t.accent, shape = CircleShape,
-                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding()
-                    .padding(start = 20.dp, bottom = 115.dp)
-            )
-
-            // ── Log
-            val scrollLog = rememberScrollState()
-            LaunchedEffect(logLines) { scrollLog.animateScrollTo(scrollLog.maxValue) }
-            Surface(shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                color = Color(0xF0111827),
-                modifier = Modifier.fillMaxWidth().height(100.dp)) {
-                Box {
-                    Text(logLines, fontSize = 10.sp, fontFamily = FontFamily.Monospace,
-                        color = Color(0xFF6EE7B7), lineHeight = 15.sp,
-                        modifier = Modifier.fillMaxSize().verticalScroll(scrollLog).padding(12.dp))
-                    IconButton(onClick = { logLines = "Clear ล้างข้อมูลแจ้งเตือนแล้ว" },
-                        modifier = Modifier.align(Alignment.TopEnd).size(28.dp)) {
-                        Icon(Icons.Rounded.Clear, null, tint = Color(0xFF6EE7B7).copy(.5f),
-                            modifier = Modifier.size(14.dp))
+                    itemsIndexed(rules, key = { _, r -> r.id }) { index, rule ->
+                        AnimatedCardSlot(
+                            index     = index,
+                            removing  = rule.id in removingIds,
+                            onRemoved = {
+                                RuleStore.delete(context, rule.id)
+                                rules = RuleStore.load(context)
+                                removingIds = removingIds - rule.id
+                            }
+                        ) {
+                            ListRuleCard(rule = rule, theme = t,
+                                onToggle = { RuleStore.toggle(context, rule.id); rules = RuleStore.load(context) },
+                                onEdit   = { editRule = rule; showEdit = true },
+                                onDelete = { deleteRule = rule })
+                        }
                     }
                 }
             }
         }
 
+        // FAB ซ้าย — เมนูตัวเลือก
+        ExtendedFloatingActionButton(
+            onClick = { showMenu = true },
+            icon    = { Icon(Icons.Rounded.Tune, null, tint = t.accent) },
+            text    = { Text("เมนู", color = t.accent, fontWeight = FontWeight.SemiBold) },
+            containerColor = t.bgSurface,
+            shape   = CircleShape,
+            modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding()
+                .padding(start = 20.dp, bottom = 24.dp)
+        )
+
+        // FAB ขวา — เพิ่ม
         ExtendedFloatingActionButton(
             onClick = { editRule = null; showEdit = true },
             icon    = { Icon(Icons.Rounded.Add, null, tint = Color.White) },
             text    = { Text("เพิ่ม", color = Color.White, fontWeight = FontWeight.SemiBold) },
             containerColor = t.accent, shape = CircleShape,
             modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding()
-                .padding(end = 20.dp, bottom = 115.dp)
+                .padding(end = 20.dp, bottom = 24.dp)
         )
     }
 
@@ -232,12 +246,139 @@ fun NotifyScreen() {
             text             = { Text("ต้องการลบใช่มั้ย?", color = t.textSecondary) },
             confirmButton    = {
                 TextButton(onClick = {
-                    RuleStore.delete(context, r.id); rules = RuleStore.load(context); deleteRule = null
+                    removingIds = removingIds + r.id
+                    deleteRule = null
                 }) { Text("ลบ", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton    = { TextButton(onClick = { deleteRule = null }) { Text("ยกเลิก", color = t.textSecondary) } },
             containerColor   = t.bgSurface
         )
+    }
+
+    if (showMenu) {
+        MenuPanelSheet(
+            theme       = t,
+            gridMode    = gridMode,
+            nlsEnabled  = nlsEnabled,
+            onGridMode  = { gridMode = it },
+            onRestartTts = { TTSForegroundService.reinit(context) },
+            onOpenPermission = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+            onDismiss   = { showMenu = false }
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANIMATED CARD SLOT — entrance stagger + mac-style "sucked away" removal
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun AnimatedCardSlot(
+    index: Int,
+    removing: Boolean,
+    onRemoved: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(index * 35L)
+        entered = true
+    }
+
+    val scale by animateFloatAsState(
+        targetValue   = when { removing -> 0f; entered -> 1f; else -> 0.85f },
+        animationSpec = if (removing) tween(260, easing = FastOutSlowInEasing)
+                        else spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "cardScale"
+    )
+    val alpha by animateFloatAsState(
+        targetValue   = if (removing) 0f else if (entered) 1f else 0f,
+        animationSpec = tween(if (removing) 200 else 280),
+        label = "cardAlpha"
+    )
+
+    LaunchedEffect(removing) {
+        if (removing) {
+            delay(240)
+            onRemoved()
+        }
+    }
+
+    Box(modifier = Modifier.scale(scale).alpha(alpha)) { content() }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MENU PANEL SHEET — left FAB panel
+// ─────────────────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MenuPanelSheet(
+    theme: AppThemeColors,
+    gridMode: Boolean,
+    nlsEnabled: Boolean,
+    onGridMode: (Boolean) -> Unit,
+    onRestartTts: () -> Unit,
+    onOpenPermission: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val t = theme
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = t.bgSurface,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = t.border) }) {
+        Column(
+            modifier            = Modifier.fillMaxWidth().navigationBarsPadding()
+                .padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("เมนู", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = t.textPrimary)
+
+            // View mode toggle
+            Surface(shape = RoundedCornerShape(16.dp), color = t.bgSurfaceAlt, modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.padding(8.dp)) {
+                    MenuToggleButton("รายการ", !gridMode, t, Modifier.weight(1f)) { onGridMode(false) }
+                    MenuToggleButton("กริด", gridMode, t, Modifier.weight(1f)) { onGridMode(true) }
+                }
+            }
+
+            // Restart TTS
+            MenuActionRow(
+                icon = "🔄", label = "Restart TTS", theme = t,
+                onClick = { onRestartTts(); onDismiss() }
+            )
+
+            // Permission shortcut (only if not granted)
+            if (!nlsEnabled) {
+                MenuActionRow(
+                    icon = "🔔", label = "เปิดสิทธิ์ Notification Access", theme = t,
+                    onClick = { onOpenPermission(); onDismiss() }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuToggleButton(label: String, selected: Boolean, t: AppThemeColors, modifier: Modifier, onClick: () -> Unit) {
+    Surface(
+        shape    = RoundedCornerShape(12.dp),
+        color    = if (selected) t.accent else Color.Transparent,
+        modifier = modifier.clickable { onClick() }
+    ) {
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            color = if (selected) Color.White else t.textSecondary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp))
+    }
+}
+
+@Composable
+private fun MenuActionRow(icon: String, label: String, theme: AppThemeColors, onClick: () -> Unit) {
+    val t = theme
+    Surface(shape = RoundedCornerShape(16.dp), color = t.bgSurfaceAlt,
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(icon, fontSize = 16.sp)
+            Spacer(Modifier.width(12.dp))
+            Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = t.textPrimary)
+        }
     }
 }
 
@@ -253,19 +394,36 @@ private fun ListRuleCard(
     val (c1, c2) = packageToGradient(rule.appPackage)
     val alpha = if (rule.enabled) 1f else 0.45f
 
-    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue   = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "pressScale"
+    )
+
+    Box(modifier = Modifier.fillMaxWidth()
+        .scale(pressScale)
+        .clip(RoundedCornerShape(24.dp))
         .background(Brush.linearGradient(listOf(c1.copy(alpha), c2.copy(alpha * .85f)),
             Offset.Zero, Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)))
+        .clickable(interactionSource = interactionSource, indication = null) { onEdit() }
     ) {
         Box(Modifier.size(100.dp).align(Alignment.TopEnd).offset(x = 24.dp, y = (-24).dp)
             .background(Brush.radialGradient(listOf(Color.White.copy(.15f), Color.Transparent)), CircleShape))
 
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val icon = rememberAppIconBitmap(rule.appPackage)
                 Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(.22f)),
                     contentAlignment = Alignment.Center) {
-                    Text(rule.appName.firstOrNull()?.uppercase() ?: "?", fontSize = 15.sp,
-                        fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    if (icon != null) {
+                        Image(bitmap = icon, contentDescription = null,
+                            modifier = Modifier.size(30.dp).clip(CircleShape))
+                    } else {
+                        Text(rule.appName.firstOrNull()?.uppercase() ?: "?", fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    }
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
@@ -321,9 +479,20 @@ private fun GridRuleCard(
     val (c1, c2) = packageToGradient(rule.appPackage)
     val alpha = if (rule.enabled) 1f else 0.45f
 
-    Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(20.dp))
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue   = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "pressScaleGrid"
+    )
+
+    Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+        .scale(pressScale)
+        .clip(RoundedCornerShape(20.dp))
         .background(Brush.linearGradient(listOf(c1.copy(alpha), c2.copy(alpha * .80f)),
             Offset.Zero, Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)))
+        .clickable(interactionSource = interactionSource, indication = null) { onEdit() }
     ) {
         Box(Modifier.size(80.dp).align(Alignment.TopEnd).offset(x = 20.dp, y = (-20).dp)
             .background(Brush.radialGradient(listOf(Color.White.copy(.15f), Color.Transparent)), CircleShape))
@@ -331,10 +500,16 @@ private fun GridRuleCard(
         Column(modifier = Modifier.fillMaxSize().padding(14.dp),
             verticalArrangement = Arrangement.SpaceBetween) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val icon = rememberAppIconBitmap(rule.appPackage)
                 Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(.22f)),
                     contentAlignment = Alignment.Center) {
-                    Text(rule.appName.firstOrNull()?.uppercase() ?: "?", fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    if (icon != null) {
+                        Image(bitmap = icon, contentDescription = null,
+                            modifier = Modifier.size(26.dp).clip(CircleShape))
+                    } else {
+                        Text(rule.appName.firstOrNull()?.uppercase() ?: "?", fontSize = 13.sp,
+                            fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 Switch(checked = rule.enabled, onCheckedChange = { onToggle() },
@@ -545,15 +720,21 @@ private fun AppPickerSheet(
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
                 items(filtered) { app ->
                     val (ic1, ic2) = packageToGradient(app.packageName)
+                    val icon = rememberAppIconBitmap(app.packageName)
                     Row(modifier = Modifier.fillMaxWidth()
                         .clickable { onSelect(app.packageName, app.label) }
                         .padding(horizontal = 8.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))
-                            .background(Brush.linearGradient(listOf(ic1, ic2))),
-                            contentAlignment = Alignment.Center) {
-                            Text(app.label.firstOrNull()?.uppercase() ?: "?", fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        if (icon != null) {
+                            Image(bitmap = icon, contentDescription = null,
+                                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)))
+                        } else {
+                            Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))
+                                .background(Brush.linearGradient(listOf(ic1, ic2))),
+                                contentAlignment = Alignment.Center) {
+                                Text(app.label.firstOrNull()?.uppercase() ?: "?", fontSize = 14.sp,
+                                    fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            }
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -591,6 +772,18 @@ private fun NotifyTextField(
 private fun isNLSEnabled(ctx: Context): Boolean {
     val flat = Settings.Secure.getString(ctx.contentResolver, "enabled_notification_listeners") ?: return false
     return flat.split(":").any { ComponentName.unflattenFromString(it)?.packageName == ctx.packageName }
+}
+
+@Composable
+private fun rememberAppIconBitmap(pkg: String): ImageBitmap? {
+    val context = LocalContext.current
+    return remember(pkg) {
+        try {
+            context.packageManager.getApplicationIcon(pkg).toBitmap().asImageBitmap()
+        } catch (e: Exception) {
+            null
+        }
+    }
 }
 
 private fun Modifier.scaleModifier(scale: Float) = this.layout { measurable, constraints ->
