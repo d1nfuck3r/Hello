@@ -39,7 +39,7 @@ fun Color.toHex6(): String = "#%06X".format(((value shr 32).toInt()) and 0x00FFF
 // ── M3 Expressive – Light (seed #6750A4 · Purple) ────────────────────────────
 // Exact M3 tonal-palette tokens from Material Theme Builder.
 // surface = N98, surfaceContainer = N93, primary = P40, onSurfaceVariant = NV30.
-val LightTheme = AppThemeColors(
+val SunsetTheme = AppThemeColors(
     bgPrimary               = Color(0xFFFEF7FF),   // background / surface  (N 98)
     bgSurface               = Color(0xFFF3EDF7),   // surfaceContainer      (N ~93)
     bgSurfaceAlt            = Color(0xFFECE6F0),   // surfaceContainerHigh  (N ~90)
@@ -61,7 +61,7 @@ val LightTheme = AppThemeColors(
 
 // ── M3 Expressive – Dark (seed #6750A4 · Purple) ─────────────────────────────
 // surface = N 6, surfaceContainer = N ~12, primary = P 80, outline = NV 60.
-val DarkTheme = AppThemeColors(
+val MinimalTheme = AppThemeColors(
     bgPrimary               = Color(0xFF141218),   // background / surface      (N 6)
     bgSurface               = Color(0xFF211F26),   // surfaceContainer          (N ~12)
     bgSurfaceAlt            = Color(0xFF2B2930),   // surfaceContainerHigh      (N ~17)
@@ -107,7 +107,7 @@ val AmoledTheme = AppThemeColors(
 // ── M3 Expressive – Minimal (neutral/zero-chroma seed) ───────────────────────
 // Strictly achromatic M3 dark variant — surfaces and accent follow the N
 // (neutral) tonal palette only; no hue saturation anywhere.
-val MinimalTheme = AppThemeColors(
+val DarkTheme = AppThemeColors(
     bgPrimary               = Color(0xFF0E0E0E),   // background neutral     (N ~5)
     bgSurface               = Color(0xFF1A1A1A),   // surfaceContainer       (N ~10)
     bgSurfaceAlt            = Color(0xFF242424),   // surfaceContainerHigh   (N ~14)
@@ -130,7 +130,7 @@ val MinimalTheme = AppThemeColors(
 // ── M3 Expressive – Sunset (warm orange seed #BF360C, dark) ──────────────────
 // M3 tonal palette from a deep-orange seed. Rich warm surfaces follow the
 // N (neutral) palette of the orange hue; accent = primary dark tone 80.
-val SunsetTheme = AppThemeColors(
+val LightTheme = AppThemeColors(
     bgPrimary               = Color(0xFF1C1107),   // background warm        (N ~6)
     bgSurface               = Color(0xFF28180A),   // surfaceContainer warm  (N ~12)
     bgSurfaceAlt            = Color(0xFF33210F),   // surfaceContainerHigh   (N ~17)
