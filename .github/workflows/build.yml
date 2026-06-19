@@ -12,13 +12,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
-        with:
-        path: ./tools
+        with:        
           distribution: temurin
           java-version: 17
+          # [แก้จุดที่ 1] เปิดแคชของ Java/Gradle เผื่อไว้
+          cache: 'gradle'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        # [แก้จุดที่ 2] ตัวนี้ทีเด็ด! มันจะแคชพวก Gradle Wrapper (9.5.1) และ Dependencies ทุกอย่างให้เองโดยอัตโนมัติ ไม่ต้องใส่ Path เองเลย
 
       - name: Fix gradle wrapper
         run: |
@@ -28,7 +30,21 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # [แก้จุดที่ 3] ใช้ actions/cache เพื่อจำ Android SDK Platform 36 และ Build-tools 35
+      - name: Cache Android SDK Components
+        uses: actions/cache@v4
+        id: cache-android-sdk
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}/platforms/android-36
+            ${{ env.ANDROID_HOME }}/build-tools/35.0.0
+          key: ${{ runner.os }}-android-sdk-36-35.0.0
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-
+
       - name: Install SDK components
+        # ใส่เงื่อนไขว่า "ถ้ารอบก่อนแคชไว้แล้ว (Cache Hit) ไม่ต้องรันคำสั่งดาวน์โหลดนี้ซ้ำ"
+        if: steps.cache-android-sdk.outputs.cache-hit != 'true'
         run: |
           sdkmanager --install "platforms;android-36" "build-tools;35.0.0" "platform-tools"
 
@@ -37,5 +53,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: NotifyTTS-APK
+          name: HelloNotify-APK
           path: app/build/outputs/apk/release/app-release-unsigned.apk
