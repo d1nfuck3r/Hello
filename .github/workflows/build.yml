@@ -13,6 +13,7 @@ jobs:
 
       - uses: actions/setup-java@v4
         with:
+        path: ./tools
           distribution: temurin
           java-version: 17
 

@@ -116,6 +116,19 @@ fun NotifyScreen() {
                     Text("Hello Notify", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
                         letterSpacing = (-0.5).sp, color = t.textPrimary)
                     Text("สวัสดี", fontSize = 13.sp, color = t.textSecondary)
+                // ── Status
+                Surface(shape = RoundedCornerShape(20.dp), color = t.bgSurface.copy(.80f),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
+                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(10.dp).clip(CircleShape)
+                            .background(if (nlsEnabled) Color(0xFF22C55E) else Color(0xFFEF4444)))
+                        Spacer(Modifier.width(12.dp))
+                        Text(if (nlsEnabled) "Notification Access เปิดอยู่" else "ยังไม่เปิด Notification Access",
+                            fontSize = 13.sp,
+                            color = if (nlsEnabled) Color(0xFF22C55E) else Color(0xFFEF4444))
+                    }
+                }
+            
                 }
                 IconButton(onClick = { gridMode = !gridMode },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(t.bgSurface)) {
@@ -137,20 +150,7 @@ fun NotifyScreen() {
                         modifier = Modifier.height(36.dp)
                     ) { Text("สิทธิ์", fontSize = 13.sp, color = Color.White) }
                 }
-            }
-
-            // ── Status
-            Surface(shape = RoundedCornerShape(20.dp), color = t.bgSurface.copy(.80f),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(10.dp).clip(CircleShape)
-                        .background(if (nlsEnabled) Color(0xFF22C55E) else Color(0xFFEF4444)))
-                    Spacer(Modifier.width(12.dp))
-                    Text(if (nlsEnabled) "Notification Access เปิดอยู่" else "ยังไม่เปิด Notification Access",
-                        fontSize = 13.sp,
-                        color = if (nlsEnabled) Color(0xFF22C55E) else Color(0xFFEF4444))
-                }
-            }
+            }            
 
             // ── Rules header
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
