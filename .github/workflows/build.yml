@@ -56,15 +56,27 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon
       
-      # 3. ใช้ rbgreaves/sign-android-release เพื่อ Sign APK หรือ AAB
+            # แทรกขั้นตอนนี้เข้าไปก่อนสั่ง Sign เพื่อบังคับลิงก์ไฟล์เวอร์ชัน 35 ไปหน้าบ้านมัน
+      - name: Force Build Tools Path
+        run: |
+          mkdir -p /usr/local/lib/android/sdk/build-tools
+          ln -s ${{ env.ANDROID_HOME }}/build-tools/35.0.0 /usr/local/lib/android/sdk/build-tools/29.0.3
+          ln -s ${{ env.ANDROID_HOME }}/build-tools/35.0.0 /usr/local/lib/android/sdk/build-tools/35.0.0
+
+      # 3. สั่ง Sign APK
       - name: Sign App Bundle
         uses: r0adkll/sign-android-release@v1
         with:
           releaseDirectory: app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
           alias: ${{ secrets.KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
+          keyStorePassword: kuy1111
+          keyPassword: kuy1111
+          buildToolsVersion: "35.0.0"
+        # เพิ่ม env บล็อกนี้เข้าไปท้ายสุดของสเต็ปนี้ เพื่อบังคับให้มันมองเห็น SDK ชัดๆ
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
                 
       # 4. เก็บไฟล์ที่ Sign เสร็จแล้วไว้บน GitHub Artifacts
       - name: Upload Signed APK
