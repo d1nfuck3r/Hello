@@ -177,16 +177,15 @@ fun NotifyScreen() {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Hello Notify", fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = (-0.5).sp, color = t.textPrimary)
-                    Text("สวัสดี", fontSize = 13.sp, color = t.textSecondary)
+                        letterSpacing = (-0.5).sp, color = t.textPrimary)                    
                 // ── Status
                 Surface(shape = RoundedCornerShape(20.dp), color = t.bgSurface.copy(.80f),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 2.dp)) {
+                    Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).clip(CircleShape)
                             .background(if (nlsEnabled) Color(0xFF22C55E) else Color(0xFFEF4444)))
                         Spacer(Modifier.width(12.dp))
-                        Text(if (nlsEnabled) "Notification Access เปิดอยู่" else "ยังไม่เปิด Notification Access",
+                        Text(if (nlsEnabled) "Ready" else "Not Ready!",
                             fontSize = 13.sp,
                             color = if (nlsEnabled) Color(0xFF22C55E) else Color(0xFFEF4444))
                     }
@@ -569,13 +568,13 @@ private fun ListRuleCard(
             Offset.Zero, Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)))
         .clickable(interactionSource = interactionSource, indication = null) { onEdit() }
     ) {
-        Box(Modifier.size(100.dp).align(Alignment.TopEnd).offset(x = 24.dp, y = (-24).dp)
+        Box(Modifier.size(75.dp).align(Alignment.TopEnd).offset(x = 24.dp, y = (-24).dp)
             .background(Brush.radialGradient(listOf(Color.White.copy(.15f), Color.Transparent)), CircleShape))
 
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val icon = rememberAppIconBitmap(rule.appPackage)
-                Box(Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(.22f)),
+                Box(Modifier.size(32.dp).clip(CircleShape).background(Color.White.copy(.22f)),
                     contentAlignment = Alignment.Center) {
                     if (icon != null) {
                         Image(bitmap = icon, contentDescription = null,
@@ -609,7 +608,7 @@ private fun ListRuleCard(
                 }
                 Surface(shape = RoundedCornerShape(999.dp), color = Color.White.copy(.14f)) {
                     Text(
-                        "${rule.triggers.size} trigger${if (rule.triggers.size != 1) "s" else ""}",
+                        "${rule.triggers.size} แจ้งเตือน${if (rule.triggers.size != 1) "s" else ""}",
                         fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(.92f),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                     )
@@ -702,11 +701,11 @@ private fun GridRuleCard(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val icon = rememberAppIconBitmap(rule.appPackage)
-                    Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(.22f)),
+                    Box(Modifier.size(30.dp).clip(CircleShape).background(Color.White.copy(.22f)),
                         contentAlignment = Alignment.Center) {
                         if (icon != null) {
                             Image(bitmap = icon, contentDescription = null,
-                                modifier = Modifier.size(26.dp).clip(CircleShape))
+                                modifier = Modifier.size(22.dp).clip(CircleShape))
                         } else {
                             Text(rule.appName.firstOrNull()?.uppercase() ?: "?", fontSize = 13.sp,
                                 fontWeight = FontWeight.ExtraBold, color = Color.White)
@@ -737,7 +736,7 @@ private fun GridRuleCard(
                     }
                     Surface(shape = RoundedCornerShape(999.dp), color = Color.White.copy(.12f)) {
                         Text(
-                            "${rule.triggers.size} trigger${if (rule.triggers.size != 1) "s" else ""}",
+                            "${rule.triggers.size} แจ้งเตือน${if (rule.triggers.size != 1) "s" else ""}",
                             fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(.92f),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
