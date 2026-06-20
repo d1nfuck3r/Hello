@@ -1,29 +1,42 @@
 package hello.notify
 
+import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -45,6 +58,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // ─────────────────────────────────────────────────────────────────────────────
 // APP COLOR PALETTE
@@ -84,7 +101,14 @@ fun NotifyScreen() {
     var deleteRule by remember { mutableStateOf<UserRule?>(null) }
     var gridMode   by remember { mutableStateOf(false) }
     var showMenu   by remember { mutableStateOf(false) }
+    var showLogPanel by remember { mutableStateOf(false) }
     var removingIds by remember { mutableStateOf(setOf<String>()) }
+    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
+    var fabVisible by remember { mutableStateOf(true) }
+    val logs = remember { mutableStateListOf<String>() }
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+    val logTimeFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
     LaunchedEffect(Unit) {
         RuleStore.seedIfEmpty(context)
@@ -93,6 +117,45 @@ fun NotifyScreen() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(svc)
         else context.startService(svc)
         while (true) { nlsEnabled = isNLSEnabled(context); delay(1000) }
+    }
+
+    DisposableEffect(Unit) {
+        LogBus.onLog = { msg ->
+            mainHandler.post {
+                logs.add(0, "${logTimeFormat.format(Date())}  $msg")
+                while (logs.size > 120) logs.removeAt(logs.lastIndex)
+            }
+        }
+        onDispose { LogBus.onLog = null }
+    }
+
+    LaunchedEffect(gridMode) {
+        fabVisible = true
+        if (gridMode) {
+            var lastIndex = gridState.firstVisibleItemIndex
+            var lastOffset = gridState.firstVisibleItemScrollOffset
+            snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
+                .collectLatest { (index, offset) ->
+                    val movedForward = index > lastIndex || (index == lastIndex && offset > lastOffset)
+                    val movedBackward = index < lastIndex || (index == lastIndex && offset < lastOffset)
+                    if (movedForward) fabVisible = false
+                    else if (movedBackward || (index == 0 && offset == 0)) fabVisible = true
+                    lastIndex = index
+                    lastOffset = offset
+                }
+        } else {
+            var lastIndex = listState.firstVisibleItemIndex
+            var lastOffset = listState.firstVisibleItemScrollOffset
+            snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }
+                .collectLatest { (index, offset) ->
+                    val movedForward = index > lastIndex || (index == lastIndex && offset > lastOffset)
+                    val movedBackward = index < lastIndex || (index == lastIndex && offset < lastOffset)
+                    if (movedForward) fabVisible = false
+                    else if (movedBackward || (index == 0 && offset == 0)) fabVisible = true
+                    lastIndex = index
+                    lastOffset = offset
+                }
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(t.bgPrimary)) {
@@ -132,7 +195,7 @@ fun NotifyScreen() {
                 }
                 IconButton(onClick = { gridMode = !gridMode },
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(t.bgSurface)) {
-                    Icon(if (gridMode) Icons.Rounded.ViewList else Icons.Rounded.GridView,
+                    Icon(if (gridMode) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView,
                         null, tint = t.accent, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.width(8.dp))
@@ -165,6 +228,7 @@ fun NotifyScreen() {
                 LazyVerticalGrid(
                     columns               = GridCells.Fixed(2),
                     modifier              = Modifier.weight(1f),
+                    state                 = gridState,
                     contentPadding        = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement   = Arrangement.spacedBy(10.dp)
@@ -189,6 +253,7 @@ fun NotifyScreen() {
             } else {
                 LazyColumn(
                     modifier            = Modifier.weight(1f),
+                    state               = listState,
                     contentPadding      = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
@@ -212,26 +277,41 @@ fun NotifyScreen() {
             }
         }
 
-        // FAB ซ้าย — เมนูตัวเลือก
-        ExtendedFloatingActionButton(
-            onClick = { showMenu = true },
-            icon    = { Icon(Icons.Rounded.Tune, null, tint = t.accent) },
-            text    = { Text("เมนู", color = t.accent, fontWeight = FontWeight.SemiBold) },
-            containerColor = t.bgSurface,
-            shape   = CircleShape,
+        AnimatedVisibility(
+            visible = fabVisible,
+            enter = fadeIn() + scaleIn(initialScale = .85f) + slideInVertically { it / 4 },
+            exit = fadeOut() + scaleOut(targetScale = .85f) + slideOutVertically { it / 4 },
             modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding()
                 .padding(start = 20.dp, bottom = 24.dp)
-        )
+        ) {
+            FloatingActionButton(
+                onClick = { showMenu = true },
+                containerColor = t.bgSurface,
+                contentColor = t.accent,
+                shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
+            ) {
+                Icon(Icons.Rounded.Tune, contentDescription = "เมนู")
+            }
+        }
 
-        // FAB ขวา — เพิ่ม
-        ExtendedFloatingActionButton(
-            onClick = { editRule = null; showEdit = true },
-            icon    = { Icon(Icons.Rounded.Add, null, tint = Color.White) },
-            text    = { Text("เพิ่ม", color = Color.White, fontWeight = FontWeight.SemiBold) },
-            containerColor = t.accent, shape = CircleShape,
+        AnimatedVisibility(
+            visible = fabVisible,
+            enter = fadeIn() + scaleIn(initialScale = .85f) + slideInVertically { it / 4 },
+            exit = fadeOut() + scaleOut(targetScale = .85f) + slideOutVertically { it / 4 },
             modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding()
                 .padding(end = 20.dp, bottom = 24.dp)
-        )
+        ) {
+            FloatingActionButton(
+                onClick = { editRule = null; showEdit = true },
+                containerColor = t.accent,
+                contentColor = Color.White,
+                shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 8.dp)
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = "เพิ่ม")
+            }
+        }
     }
 
     if (showEdit) {
@@ -264,7 +344,20 @@ fun NotifyScreen() {
             onGridMode  = { gridMode = it },
             onRestartTts = { TTSForegroundService.reinit(context) },
             onOpenPermission = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+            onOpenLog = {
+                showMenu = false
+                showLogPanel = true
+            },
             onDismiss   = { showMenu = false }
+        )
+    }
+
+    if (showLogPanel) {
+        LogPanelSheet(
+            logs = logs,
+            theme = t,
+            onClear = { logs.clear() },
+            onDismiss = { showLogPanel = false }
         )
     }
 }
@@ -319,6 +412,7 @@ private fun MenuPanelSheet(
     onGridMode: (Boolean) -> Unit,
     onRestartTts: () -> Unit,
     onOpenPermission: () -> Unit,
+    onOpenLog: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val t = theme
@@ -345,12 +439,77 @@ private fun MenuPanelSheet(
                 onClick = { onRestartTts(); onDismiss() }
             )
 
+            MenuActionRow(
+                icon = "🧾", label = "Log", theme = t,
+                onClick = onOpenLog
+            )
+
             // Permission shortcut (only if not granted)
             if (!nlsEnabled) {
                 MenuActionRow(
                     icon = "🔔", label = "เปิดสิทธิ์ Notification Access", theme = t,
                     onClick = { onOpenPermission(); onDismiss() }
                 )
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LOG PANEL SHEET
+// ─────────────────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LogPanelSheet(
+    logs: List<String>,
+    theme: AppThemeColors,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val t = theme
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = t.bgSurface,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = t.border) }) {
+        Column(
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+                .padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Log", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = t.textPrimary)
+                    Text("${logs.size} รายการ", fontSize = 12.sp, color = t.textSecondary)
+                }
+                TextButton(onClick = onClear, enabled = logs.isNotEmpty()) {
+                    Text("ล้าง", color = if (logs.isNotEmpty()) t.accent else t.textSecondary.copy(.45f))
+                }
+            }
+
+            Surface(shape = RoundedCornerShape(16.dp), color = t.bgSurfaceAlt, modifier = Modifier.fillMaxWidth()) {
+                if (logs.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(180.dp).padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("ยังไม่มี log", fontSize = 13.sp, color = t.textSecondary)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        items(logs) { line ->
+                            Text(
+                                text = line,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = t.textPrimary,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp)
+                            )
+                            HorizontalDivider(color = t.borderVariant.copy(.35f), thickness = 0.5.dp)
+                        }
+                    }
+                }
             }
         }
     }
@@ -393,7 +552,7 @@ private fun ListRuleCard(
 ) {
     val t = theme
     val (c1, c2) = packageToGradient(rule.appPackage)
-    val alpha = if (rule.enabled) 1f else 0.45f
+    val alpha = if (rule.enabled) 1f else 0.38f
 
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -413,25 +572,25 @@ private fun ListRuleCard(
         Box(Modifier.size(100.dp).align(Alignment.TopEnd).offset(x = 24.dp, y = (-24).dp)
             .background(Brush.radialGradient(listOf(Color.White.copy(.15f), Color.Transparent)), CircleShape))
 
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val icon = rememberAppIconBitmap(rule.appPackage)
-                Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(.22f)),
+                Box(Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(.22f)),
                     contentAlignment = Alignment.Center) {
                     if (icon != null) {
                         Image(bitmap = icon, contentDescription = null,
-                            modifier = Modifier.size(30.dp).clip(CircleShape))
+                            modifier = Modifier.size(32.dp).clip(CircleShape))
                     } else {
-                        Text(rule.appName.firstOrNull()?.uppercase() ?: "?", fontSize = 15.sp,
+                        Text(rule.appName.firstOrNull()?.uppercase() ?: "?", fontSize = 16.sp,
                             fontWeight = FontWeight.ExtraBold, color = Color.White)
                     }
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(rule.appName.ifEmpty { rule.appPackage }, fontWeight = FontWeight.ExtraBold,
-                        fontSize = 15.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("${rule.triggers.size} trigger${if (rule.triggers.size != 1) "s" else ""}",
-                        fontSize = 11.sp, color = Color.White.copy(.65f))
+                        fontSize = 16.sp, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(rule.appPackage, fontSize = 10.sp, color = Color.White.copy(.66f),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Switch(checked = rule.enabled, onCheckedChange = { onToggle() },
                     colors = SwitchDefaults.colors(
@@ -440,29 +599,67 @@ private fun ListRuleCard(
                     ))
             }
 
-            Spacer(Modifier.height(12.dp))
-
-            rule.triggers.take(3).forEach { trig ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 5.dp)) {
-                    Surface(shape = CircleShape, color = Color.White.copy(.20f)) {
-                        Text("แจ้งเตือนแอพ", fontSize = 8.sp, fontWeight = FontWeight.ExtraBold,
-                            color = Color.White, letterSpacing = 0.5.sp,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Text(trig.keyword, fontSize = 11.sp, color = Color.White.copy(.9f),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(shape = RoundedCornerShape(999.dp), color = Color.White.copy(.18f)) {
+                    Text(
+                        if (rule.enabled) "เปิดใช้งาน" else "ปิดใช้งาน",
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
+                }
+                Surface(shape = RoundedCornerShape(999.dp), color = Color.White.copy(.14f)) {
+                    Text(
+                        "${rule.triggers.size} trigger${if (rule.triggers.size != 1) "s" else ""}",
+                        fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(.92f),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    )
                 }
             }
-            if (rule.triggers.size > 3)
-                Text("+${rule.triggers.size - 3} อื่นๆ", fontSize = 10.sp, color = Color.White.copy(.6f))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(onClick = onEdit,   modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Rounded.Edit,   null, tint = Color.White.copy(.8f), modifier = Modifier.size(17.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                rule.triggers.take(3).forEach { trig ->
+                    Surface(shape = RoundedCornerShape(14.dp), color = Color.White.copy(.14f)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(shape = RoundedCornerShape(10.dp), color = Color.White.copy(.16f)) {
+                                Text(
+                                    trig.keyword,
+                                    fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                trig.template,
+                                fontSize = 11.sp, color = Color.White.copy(.90f),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
-                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Rounded.Delete, null, tint = Color.White.copy(.55f), modifier = Modifier.size(17.dp))
+                if (rule.triggers.size > 3) {
+                    Text("+${rule.triggers.size - 3} อื่นๆ", fontSize = 10.sp, color = Color.White.copy(.70f))
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Surface(shape = CircleShape, color = Color.White.copy(.14f)) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Rounded.Edit, null, tint = Color.White.copy(.88f), modifier = Modifier.size(17.dp))
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Surface(shape = CircleShape, color = Color.White.copy(.14f)) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Rounded.Delete, null, tint = Color.White.copy(.72f), modifier = Modifier.size(17.dp))
+                    }
                 }
             }
         }
@@ -478,7 +675,7 @@ private fun GridRuleCard(
     onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit
 ) {
     val (c1, c2) = packageToGradient(rule.appPackage)
-    val alpha = if (rule.enabled) 1f else 0.45f
+    val alpha = if (rule.enabled) 1f else 0.38f
 
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -498,40 +695,97 @@ private fun GridRuleCard(
         Box(Modifier.size(80.dp).align(Alignment.TopEnd).offset(x = 20.dp, y = (-20).dp)
             .background(Brush.radialGradient(listOf(Color.White.copy(.15f), Color.Transparent)), CircleShape))
 
-        Column(modifier = Modifier.fillMaxSize().padding(14.dp),
-            verticalArrangement = Arrangement.SpaceBetween) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val icon = rememberAppIconBitmap(rule.appPackage)
-                Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(.22f)),
-                    contentAlignment = Alignment.Center) {
-                    if (icon != null) {
-                        Image(bitmap = icon, contentDescription = null,
-                            modifier = Modifier.size(26.dp).clip(CircleShape))
-                    } else {
-                        Text(rule.appName.firstOrNull()?.uppercase() ?: "?", fontSize = 13.sp,
-                            fontWeight = FontWeight.ExtraBold, color = Color.White)
+        Column(
+            modifier = Modifier.fillMaxSize().padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val icon = rememberAppIconBitmap(rule.appPackage)
+                    Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(.22f)),
+                        contentAlignment = Alignment.Center) {
+                        if (icon != null) {
+                            Image(bitmap = icon, contentDescription = null,
+                                modifier = Modifier.size(26.dp).clip(CircleShape))
+                        } else {
+                            Text(rule.appName.firstOrNull()?.uppercase() ?: "?", fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        }
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Switch(checked = rule.enabled, onCheckedChange = { onToggle() },
+                        modifier = Modifier.scaleModifier(0.75f),
+                        colors   = SwitchDefaults.colors(
+                            checkedThumbColor   = c1, checkedTrackColor   = Color.White.copy(.9f),
+                            uncheckedThumbColor = Color.White.copy(.6f), uncheckedTrackColor = Color.White.copy(.2f)
+                        ))
+                }
+
+                Text(rule.appName.ifEmpty { rule.appPackage }, fontWeight = FontWeight.ExtraBold,
+                    fontSize = 14.sp, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(rule.appPackage,
+                    fontSize = 9.sp, color = Color.White.copy(.62f),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                    Surface(shape = RoundedCornerShape(999.dp), color = Color.White.copy(.16f)) {
+                        Text(
+                            if (rule.enabled) "เปิด" else "ปิด",
+                            fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                    Surface(shape = RoundedCornerShape(999.dp), color = Color.White.copy(.12f)) {
+                        Text(
+                            "${rule.triggers.size} trigger${if (rule.triggers.size != 1) "s" else ""}",
+                            fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(.92f),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
                     }
                 }
-                Spacer(Modifier.weight(1f))
-                Switch(checked = rule.enabled, onCheckedChange = { onToggle() },
-                    modifier = Modifier.scaleModifier(0.75f),
-                    colors   = SwitchDefaults.colors(
-                        checkedThumbColor   = c1, checkedTrackColor   = Color.White.copy(.9f),
-                        uncheckedThumbColor = Color.White.copy(.6f), uncheckedTrackColor = Color.White.copy(.2f)
-                    ))
-            }
-            Column {
-                Text(rule.appName.ifEmpty { rule.appPackage }, fontWeight = FontWeight.ExtraBold,
-                    fontSize = 13.sp, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("${rule.triggers.size} trigger${if (rule.triggers.size != 1) "s" else ""}",
-                    fontSize = 10.sp, color = Color.White.copy(.65f))
-            }
-            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                IconButton(onClick = onEdit,   modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Rounded.Edit,   null, tint = Color.White.copy(.8f), modifier = Modifier.size(15.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    rule.triggers.take(2).forEach { trig ->
+                        Surface(shape = RoundedCornerShape(12.dp), color = Color.White.copy(.14f)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(shape = RoundedCornerShape(8.dp), color = Color.White.copy(.15f)) {
+                                    Text(
+                                        trig.keyword,
+                                        fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                    )
+                                }
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    trig.template,
+                                    fontSize = 9.sp, color = Color.White.copy(.88f),
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                    if (rule.triggers.size > 2) {
+                        Text("+${rule.triggers.size - 2} อื่นๆ", fontSize = 9.sp, color = Color.White.copy(.62f))
+                    }
                 }
-                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Rounded.Delete, null, tint = Color.White.copy(.55f), modifier = Modifier.size(15.dp))
+            }
+
+            Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                Surface(shape = CircleShape, color = Color.White.copy(.14f)) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Rounded.Edit, null, tint = Color.White.copy(.88f), modifier = Modifier.size(15.dp))
+                    }
+                }
+                Spacer(Modifier.width(6.dp))
+                Surface(shape = CircleShape, color = Color.White.copy(.14f)) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Rounded.Delete, null, tint = Color.White.copy(.72f), modifier = Modifier.size(15.dp))
+                    }
                 }
             }
         }
@@ -687,6 +941,7 @@ private fun AppPickerSheet(
     val context = LocalContext.current
     var query   by remember { mutableStateOf("") }
 
+    @SuppressLint("NewApi")
     val apps = remember {
         val pm    = context.packageManager
         val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)

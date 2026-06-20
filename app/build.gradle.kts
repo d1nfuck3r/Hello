@@ -6,17 +6,15 @@ plugins {
 android {
     namespace = "hello.notify"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(35)
     }
 
     defaultConfig {
         applicationId = "hello.notify"
         minSdk = 26
-        targetSdk = 36
-        versionCode = 3
-        versionName = "1.1"
+        targetSdk = 35
+        versionCode = 1
+        versionName = "2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
