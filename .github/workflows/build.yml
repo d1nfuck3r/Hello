@@ -21,6 +21,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         # [แก้จุดที่ 2] ตัวนี้ทีเด็ด! มันจะแคชพวก Gradle Wrapper (9.5.1) และ Dependencies ทุกอย่างให้เองโดยอัตโนมัติ ไม่ต้องใส่ Path เองเลย
+      
+      # 1. สร้างไฟล์ .jks กลับมาจาก Base64 ที่เราเก็บไว้ใน Secret
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/my-release-key.jks
 
       - name: Fix gradle wrapper
         run: |
@@ -50,8 +55,20 @@ jobs:
 
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon
-
-      - uses: actions/upload-artifact@v4
+      
+      # 3. ใช้ rbgreaves/sign-android-release เพื่อ Sign APK หรือ AAB
+      - name: Sign App Bundle
+        uses: rbgreaves/sign-android-release@v1
         with:
-          name: HelloNotify-APK
-          path: app/build/outputs/apk/release/app-release-signed.apk
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+                
+      # 4. เก็บไฟล์ที่ Sign เสร็จแล้วไว้บน GitHub Artifacts
+      - name: Upload Signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HelloNotify-Sign
+          path: app/build/outputs/apk/release/*-signed.apk
