@@ -58,7 +58,7 @@ jobs:
       
       # 3. ใช้ rbgreaves/sign-android-release เพื่อ Sign APK หรือ AAB
       - name: Sign App Bundle
-        uses: rbgreaves/sign-android-release@v1
+        uses: r0adkll/sign-android-release@v1
         with:
           releaseDirectory: app/build/outputs/apk/release
           signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
