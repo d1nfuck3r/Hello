@@ -25,7 +25,7 @@ jobs:
       # 1. สร้างไฟล์ .jks กลับมาจาก Base64 ที่เราเก็บไว้ใน Secret
       - name: Decode Keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/my-release-key.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/nahee.jks
 
       - name: Fix gradle wrapper
         run: |
@@ -62,6 +62,7 @@ jobs:
           mkdir -p /usr/local/lib/android/sdk/build-tools
           rm -rf /usr/local/lib/android/sdk/build-tools/29.0.3
           ln -s ${{ env.ANDROID_HOME }}/build-tools/35.0.0 /usr/local/lib/android/sdk/build-tools/29.0.3
+          cp -r /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner /usr/local/lib/android/sdk/build-tools/29.0.3/
 
       # 3. สั่ง Sign APK
       - name: Sign App Bundle
