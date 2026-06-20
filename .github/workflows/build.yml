@@ -64,24 +64,20 @@ jobs:
           ln -s ${{ env.ANDROID_HOME }}/build-tools/35.0.0 /usr/local/lib/android/sdk/build-tools/29.0.3
           rm -rf /usr/local/lib/android/sdk/build-tools/29.0.3/apksigner
           mv -f /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner /usr/local/lib/android/sdk/build-tools/29.0.3/
+          ls /usr/local/lib && ls /usr/local/lib/android && ls /usr/local/lib/android/sdk && ls  /usr/local/lib/android/sdk/build-tools && ls  /usr/local/lib/android/sdk/build-tools/35.0.0 && ls  /usr/local/lib/android/sdk/build-tools/29.0.3
 
-      # 3. สั่ง Sign APK
-      - name: Sign App Bundle
-        uses: r0adkll/sign-android-release@v1
-        with:
-          releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64: "${{ secrets.KEYSTORE_BASE64 }}"
-          alias: "${{ secrets.KEY_ALIAS }}"
-          keyStorePassword: "kuy1111"
-          keyPassword: "kuy1111"
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
-          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      # 3. แปลงร่างและ Sign แบบดั้งเดิม (ไม่ต้องง้อ Action สำเร็จรูป)
+      - name: Sign APK (Native Method)
+        run: |
+          # เรียกใช้ zipalign จากโฟลเดอร์ 35 ที่เราโหลดไว้โดยตรง
+          ${{ env.ANDROID_HOME }}/build-tools/35.0.0/zipalign -v 4 app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/app-release-aligned.apk
+          
+          # ใช้ apksigner ยิงตรงเข้าไฟล์ .jks ที่เรา Decode ออกมา
+          ${{ env.ANDROID_HOME }}/build-tools/35.0.0/apksigner sign --ks app/my-release-key.jks --ks-key-alias "${{ secrets.KEY_ALIAS }}" --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" --key-pass pass:"${{ secrets.KEY_PASSWORD }}" --out app/build/outputs/apk/release/app-release-signed.apk app/build/outputs/apk/release/app-release-aligned.apk
 
-                
       # 4. เก็บไฟล์ที่ Sign เสร็จแล้วไว้บน GitHub Artifacts
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
           name: HelloNotify-Sign
-          path: app/build/outputs/apk/release/*-signed.apk
+          path: app/build/outputs/apk/release/app-release-signed.apk
