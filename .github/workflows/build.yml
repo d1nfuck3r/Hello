@@ -56,16 +56,7 @@ jobs:
       - name: Build Release APK
         run: ./gradlew assembleRelease --no-daemon
       
-      # 2.5 บังคับลิงก์ไฟล์เวอร์ชัน 35 ไปหน้าบ้านมัน
-      - name: Force Build Tools Path
-        run: |
-          mkdir -p /usr/local/lib/android/sdk/build-tools
-          rm -rf /usr/local/lib/android/sdk/build-tools/29.0.3
-          ln -s ${{ env.ANDROID_HOME }}/build-tools/35.0.0 /usr/local/lib/android/sdk/build-tools/29.0.3
-          rm -rf /usr/local/lib/android/sdk/build-tools/29.0.3/apksigner
-          mv -f /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner /usr/local/lib/android/sdk/build-tools/29.0.3/
-          ls /usr/local/lib && ls /usr/local/lib/android && ls /usr/local/lib/android/sdk && ls  /usr/local/lib/android/sdk/build-tools && ls  /usr/local/lib/android/sdk/build-tools/35.0.0 && ls  /usr/local/lib/android/sdk/build-tools/29.0.3
-
+      
       # 3. แปลงร่างและ Sign แบบดั้งเดิม (ไม่ต้องง้อ Action สำเร็จรูป)
       - name: Sign APK (Native Method)
         run: |
