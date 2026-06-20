@@ -62,7 +62,7 @@ jobs:
           mkdir -p /usr/local/lib/android/sdk/build-tools
           rm -rf /usr/local/lib/android/sdk/build-tools/29.0.3
           ln -s ${{ env.ANDROID_HOME }}/build-tools/35.0.0 /usr/local/lib/android/sdk/build-tools/29.0.3
-          cp -r /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner /usr/local/lib/android/sdk/build-tools/29.0.3/
+          mv -f /usr/local/lib/android/sdk/build-tools/35.0.0/apksigner /usr/local/lib/android/sdk/build-tools/29.0.3/
 
       # 3. สั่ง Sign APK
       - name: Sign App Bundle
