@@ -64,7 +64,7 @@ jobs:
           ${{ env.ANDROID_HOME }}/build-tools/35.0.0/zipalign -v 4 app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/app-release-aligned.apk
           
           # ใช้ apksigner ยิงตรงเข้าไฟล์ .jks ที่เรา Decode ออกมา
-          ${{ env.ANDROID_HOME }}/build-tools/35.0.0/apksigner sign --ks app/my-release-key.jks --ks-key-alias "${{ secrets.KEY_ALIAS }}" --ks-pass pass:"${{ secrets.KEYSTORE_PASSWORD }}" --key-pass pass:"${{ secrets.KEY_PASSWORD }}" --out app/build/outputs/apk/release/app-release-signed.apk app/build/outputs/apk/release/app-release-aligned.apk
+          ${{ env.ANDROID_HOME }}/build-tools/35.0.0/apksigner sign --ks app/nahee.jks --ks-key-alias "${{ secrets.KEY_ALIAS }}" --ks-pass pass:"kuy1111" --key-pass pass:"kuy1111" --out app/build/outputs/apk/release/app-release-signed.apk app/build/outputs/apk/release/app-release-aligned.apk
 
       # 4. เก็บไฟล์ที่ Sign เสร็จแล้วไว้บน GitHub Artifacts
       - name: Upload Signed APK
